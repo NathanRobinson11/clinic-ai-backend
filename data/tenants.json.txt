@@ -1,0 +1,12 @@
+{
+  "clinic1": {
+    "name": "Demo Audiology Clinic",
+    "provider": "google",
+    "reviewLink": "[g.page](https://g.page/r/your-review-id)",
+    "faqFile": "clinic1.json",
+    "google": {
+      "connected": false,
+      "refreshToken": null
+    }
+  }
+}

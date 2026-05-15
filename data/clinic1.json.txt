@@ -1,0 +1,4 @@
+[
+  { "keyword": "hearing test", "answer": "A full hearing test takes 45–60 minutes." },
+  { "keyword": "wax", "answer": "We offer microsuction wax removal, usually 15–30 minutes." }
+]
