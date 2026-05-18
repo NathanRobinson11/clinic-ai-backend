@@ -14,5 +14,7 @@ app.use("/bookings", require("./routes/bookings"));
 app.use("/sms", require("./routes/sms"));
 app.use("/faq", require("./routes/faq"));
 app.use("/reviews", require("./routes/reviews"));
+app.use("/oauth2callback", require("./routes/oauth2callback"));
+
 
 app.listen(3000, () => console.log("Server running on port 3000"));
