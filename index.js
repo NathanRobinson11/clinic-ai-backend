@@ -15,7 +15,7 @@ app.get("/auth/google", (req, res) => {
   const oauth2Client = getOAuthClient();
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
-    scope: ["[googleapis.com](https://www.googleapis.com/auth/calendar)"],
+    scope: ["https://www.googleapis.com/auth/calendar"],
     prompt: "consent"
   });
   res.redirect(url);
