@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { getOAuthClient, getRefreshToken, createCalendarEvent } = require("../services/googleCalendar");
+const { createCalendarEvent } = require("../services/googleCalendar");
 
 router.post("/book", async (req, res) => {
-  const { patientName, date, time, reason } = req.body;
+  const { patientName, dateTime, reason, phone } = req.body;
 
   try {
-    const startDateTime = new Date(`${date}T${time}:00`);
+    const startDateTime = new Date(dateTime);
     const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
 
     const event = {
