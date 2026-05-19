@@ -11,10 +11,11 @@ router.get("/", async (req, res) => {
 
   try {
     const oauth2Client = getOAuthClient();
-
     const { tokens } = await oauth2Client.getToken(code);
 
     saveRefreshToken(tokens.refresh_token);
+
+    console.log("REFRESH TOKEN:", tokens.refresh_token);
 
     res.send("Google Calendar connected successfully. You can close this page.");
   } catch (e) {
