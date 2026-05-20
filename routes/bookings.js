@@ -9,32 +9,46 @@ const { createCalendarEvent } = require("../services/googleCalendar");
 router.post("/book", async (req, res) => {
   const { patientName, dateTime, reason, phone, clinicId } = req.body;
 
-  try {
-    console.log("Booking request received:", req.body);
+  console.log("📥 Booking request received:", req.body);
 
-    // Validate required fields
+  try {
+    /**
+     * -----------------------------
+     * VALIDATION (CRITICAL)
+     * -----------------------------
+     */
     if (!patientName || !dateTime || !reason || !phone) {
       return res.json({
         success: false,
-        message: "Missing required booking information. Please try again."
+        message: "Missing required booking details. Please provide all information."
       });
     }
 
-    // IMPORTANT: prevent timezone shift issues
+    /**
+     * -----------------------------
+     * DATE PARSING (TIMEZONE SAFE)
+     * -----------------------------
+     * Vapi sends ISO string → we lock it to correct interpretation
+     */
     const startDateTime = new Date(dateTime);
 
     if (isNaN(startDateTime.getTime())) {
       return res.json({
         success: false,
-        message: "Invalid appointment time received. Please try again."
+        message: "I couldn't understand the appointment time. Please try again."
       });
     }
 
     const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
 
+    /**
+     * -----------------------------
+     * GOOGLE CALENDAR EVENT
+     * -----------------------------
+     */
     const event = {
       summary: `Appointment: ${patientName}`,
-      description: reason || "Audiology appointment",
+      description: `${reason} | Phone: ${phone}`,
       start: {
         dateTime: startDateTime.toISOString(),
         timeZone: "Europe/London"
@@ -51,7 +65,11 @@ router.post("/book", async (req, res) => {
       throw new Error("Calendar event creation failed");
     }
 
-    // HUMAN-FRIENDLY FORMAT (IMPORTANT FOR VAPI SPEECH)
+    /**
+     * -----------------------------
+     * HUMAN READABLE RESPONSE (VAPI SPEECH)
+     * -----------------------------
+     */
     const spokenDate = startDateTime.toLocaleString("en-GB", {
       timeZone: "Europe/London",
       weekday: "long",
@@ -61,14 +79,16 @@ router.post("/book", async (req, res) => {
       minute: "2-digit"
     });
 
+    console.log("📅 Calendar event created:", result.id);
+
     return res.json({
       success: true,
       message: `Perfect — your appointment is confirmed for ${spokenDate}. We look forward to seeing you.`,
       eventId: result.id
     });
 
-  } catch (err) {
-    console.error("BOOKING ERROR:", err);
+  } catch (error) {
+    console.error("❌ Booking error:", error);
 
     return res.json({
       success: false,
@@ -78,7 +98,7 @@ router.post("/book", async (req, res) => {
 });
 
 /**
- * CANCEL (placeholder)
+ * CANCEL (placeholder for now)
  */
 router.post("/cancel", async (req, res) => {
   return res.json({
