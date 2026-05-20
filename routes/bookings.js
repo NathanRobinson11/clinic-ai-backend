@@ -1,7 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const { createCalendarEvent } = require("../services/googleCalendar");
 
+const {
+  createCalendarEvent,
+  getAvailableSlots
+} = require("../services/googleCalendar");
+
+/**
+ * BOOK APPOINTMENT
+ */
 router.post("/book", async (req, res) => {
   const { patientName, dateTime, reason, phone, clinicId } = req.body;
 
@@ -10,18 +17,19 @@ router.post("/book", async (req, res) => {
 
     // Validate required fields
     if (!patientName || !dateTime || !reason || !phone) {
-      return res.json({
+      return res.status(400).json({
         success: false,
-        message: "Missing required booking information. Please try again."
+        message: "Missing required booking information"
       });
     }
 
     const startDateTime = new Date(dateTime);
 
     if (isNaN(startDateTime.getTime())) {
-      return res.json({
+      return res.status(400).json({
         success: false,
-        message: "I couldn't understand the appointment time. Please try again."
+        message: "Invalid dateTime format received",
+        received: dateTime
       });
     }
 
@@ -32,25 +40,27 @@ router.post("/book", async (req, res) => {
       description: reason || "Audiology appointment",
       start: {
         dateTime: startDateTime.toISOString(),
-        timeZone: "Europe/London",
+        timeZone: "Europe/London"
       },
       end: {
         dateTime: endDateTime.toISOString(),
-        timeZone: "Europe/London",
-      },
+        timeZone: "Europe/London"
+      }
     };
 
     const result = await createCalendarEvent("primary", event);
-    console.log("Calendar event created:", result.id);
 
-    // HUMAN-FRIENDLY speech format (THIS fixes your weird speech issue)
+    if (!result || !result.id) {
+      throw new Error("Calendar event creation failed");
+    }
+
     const spokenDate = startDateTime.toLocaleString("en-GB", {
       timeZone: "Europe/London",
       weekday: "long",
       day: "numeric",
       month: "long",
       hour: "2-digit",
-      minute: "2-digit",
+      minute: "2-digit"
     });
 
     return res.json({
@@ -59,21 +69,66 @@ router.post("/book", async (req, res) => {
       eventId: result.id
     });
 
-  } catch (e) {
-    console.log("Booking error:", e.message);
+  } catch (err) {
+    console.error("BOOKING ERROR:", err);
 
-    return res.json({
+    return res.status(500).json({
       success: false,
-      message: "Sorry — I wasn't able to book that appointment. Please try again."
+      message: "Sorry, I couldn't complete the booking. Please try again."
     });
   }
 });
 
+/**
+ * CANCEL (placeholder for now)
+ */
 router.post("/cancel", async (req, res) => {
   return res.json({
     success: true,
     message: "Your cancellation request has been received."
   });
+});
+
+/**
+ * AVAILABILITY ENDPOINT (USED BY VAPI)
+ */
+router.post("/availability", async (req, res) => {
+  const { date } = req.body;
+
+  try {
+    console.log("Availability request received:", req.body);
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date is required"
+      });
+    }
+
+    const slots = await getAvailableSlots("primary", date);
+
+    const formattedSlots = slots.map(slot =>
+      new Date(slot).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/London"
+      })
+    );
+
+    return res.json({
+      success: true,
+      slots: formattedSlots,
+      message: "Available times retrieved"
+    });
+
+  } catch (err) {
+    console.error("AVAILABILITY ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Could not fetch availability"
+    });
+  }
 });
 
 module.exports = router;
