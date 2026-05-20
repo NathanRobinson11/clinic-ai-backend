@@ -6,11 +6,15 @@ const { getOAuthClient } = require("./services/googleCalendar");
 const app = express();
 
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// ✅ DEBUG LOGGER (THIS IS WHAT WE ADDED)
+// DEBUG LOGGER
 app.use((req, res, next) => {
   console.log("📡 REQUEST RECEIVED:", req.method, req.url);
+  console.log("📦 BODY:", JSON.stringify(req.body));
   next();
 });
 
@@ -25,7 +29,7 @@ app.get("/auth/google", (req, res) => {
 
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
-    scope: ["https://www.googleapis.com/auth/calendar"],
+    scope: ["[googleapis.com](https://www.googleapis.com/auth/calendar)"],
     prompt: "consent",
   });
 
