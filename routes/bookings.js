@@ -1,10 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const {
-  createCalendarEvent,
-  getAvailableSlots
-} = require("../services/googleCalendar");
+const { createCalendarEvent } = require("../services/googleCalendar");
 
 /**
  * BOOK APPOINTMENT
@@ -17,19 +14,19 @@ router.post("/book", async (req, res) => {
 
     // Validate required fields
     if (!patientName || !dateTime || !reason || !phone) {
-      return res.status(400).json({
+      return res.json({
         success: false,
-        message: "Missing required booking information"
+        message: "Missing required booking information. Please try again."
       });
     }
 
+    // IMPORTANT: prevent timezone shift issues
     const startDateTime = new Date(dateTime);
 
     if (isNaN(startDateTime.getTime())) {
-      return res.status(400).json({
+      return res.json({
         success: false,
-        message: "Invalid dateTime format received",
-        received: dateTime
+        message: "Invalid appointment time received. Please try again."
       });
     }
 
@@ -54,6 +51,7 @@ router.post("/book", async (req, res) => {
       throw new Error("Calendar event creation failed");
     }
 
+    // HUMAN-FRIENDLY FORMAT (IMPORTANT FOR VAPI SPEECH)
     const spokenDate = startDateTime.toLocaleString("en-GB", {
       timeZone: "Europe/London",
       weekday: "long",
@@ -72,63 +70,21 @@ router.post("/book", async (req, res) => {
   } catch (err) {
     console.error("BOOKING ERROR:", err);
 
-    return res.status(500).json({
+    return res.json({
       success: false,
-      message: "Sorry, I couldn't complete the booking. Please try again."
+      message: "Sorry — I couldn't complete your booking. Please try again."
     });
   }
 });
 
 /**
- * CANCEL (placeholder for now)
+ * CANCEL (placeholder)
  */
 router.post("/cancel", async (req, res) => {
   return res.json({
     success: true,
     message: "Your cancellation request has been received."
   });
-});
-
-/**
- * AVAILABILITY ENDPOINT (USED BY VAPI)
- */
-router.post("/availability", async (req, res) => {
-  const { date } = req.body;
-
-  try {
-    console.log("Availability request received:", req.body);
-
-    if (!date) {
-      return res.status(400).json({
-        success: false,
-        message: "Date is required"
-      });
-    }
-
-    const slots = await getAvailableSlots("primary", date);
-
-    const formattedSlots = slots.map(slot =>
-      new Date(slot).toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Europe/London"
-      })
-    );
-
-    return res.json({
-      success: true,
-      slots: formattedSlots,
-      message: "Available times retrieved"
-    });
-
-  } catch (err) {
-    console.error("AVAILABILITY ERROR:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: "Could not fetch availability"
-    });
-  }
 });
 
 module.exports = router;
