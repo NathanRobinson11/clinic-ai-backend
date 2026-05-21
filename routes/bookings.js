@@ -52,10 +52,11 @@ router.post("/book", async (req, res) => {
 });
 
 // Check availability
-router.get("/availability", async (req, res) => {
-  console.log("📡 REQUEST RECEIVED: GET /bookings/availability");
+router.post("/availability", async (req, res) => {
+  console.log("📡 REQUEST RECEIVED: POST /bookings/availability");
+  console.log("📦 BODY:", JSON.stringify(req.body));
 
-  const { date } = req.query.date ? req.query : req.body;
+  const { date } = req.body;
 
   if (!date) {
     return res.status(400).json({ success: false, message: "date is required (format: YYYY-MM-DD)." });
