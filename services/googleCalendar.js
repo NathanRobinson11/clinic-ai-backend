@@ -24,7 +24,6 @@ async function createCalendarEvent(calendarId, event) {
 
   const calendar = google.calendar({ version: "v3", auth });
 
-  // Force Europe/London so times are never shifted to UTC
   if (event.start && event.start.dateTime) {
     event.start.timeZone = "Europe/London";
   }
@@ -46,9 +45,8 @@ async function getAvailability(calendarId, date) {
 
   const calendar = google.calendar({ version: "v3", auth });
 
-  // Build start and end of the requested day in London time
-  const dayStart = new Date(`${date}T08:00:00`);
-  const dayEnd = new Date(`${date}T18:00:00`);
+  const dayStart = new Date(`${date}T08:00:00+01:00`);
+  const dayEnd = new Date(`${date}T18:00:00+01:00`);
 
   const response = await calendar.events.list({
     calendarId: calendarId,
@@ -59,13 +57,69 @@ async function getAvailability(calendarId, date) {
     timeZone: "Europe/London",
   });
 
-  const bookedSlots = response.data.items.map((e) => ({
+  const booked = response.data.items.map((e) => ({
     start: e.start.dateTime,
     end: e.end.dateTime,
-    summary: e.summary,
   }));
 
-  return bookedSlots;
+  // Generate all 1-hour slots from 8am to 5pm
+  const allSlots = [];
+  for (let hour = 8; hour <= 17; hour++) {
+    const slotStart = new Date(`${date}T${String(hour).padStart(2, "0")}:00:00+01:00`);
+    const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+
+    const isTaken = booked.some((b) => {
+      const bookedStart = new Date(b.start);
+      const bookedEnd = new Date(b.end);
+      return slotStart < bookedEnd && slotEnd > bookedStart;
+    });
+
+    if (!isTaken) {
+      allSlots.push(
+        slotStart.toLocaleTimeString("en-GB", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Europe/London",
+        })
+      );
+    }
+  }
+
+  return allSlots;
+}
+
+async function cancelCalendarEvent(calendarId, eventId) {
+  const auth = getOAuthClient();
+  auth.setCredentials({ refresh_token: getRefreshToken() });
+
+  const calendar = google.calendar({ version: "v3", auth });
+
+  await calendar.events.delete({
+    calendarId: calendarId,
+    eventId: eventId,
+  });
+}
+
+async function findEventByPatientAndDate(calendarId, patientName, date) {
+  const auth = getOAuthClient();
+  auth.setCredentials({ refresh_token: getRefreshToken() });
+
+  const calendar = google.calendar({ version: "v3", auth });
+
+  const dayStart = new Date(`${date}T00:00:00+01:00`);
+  const dayEnd = new Date(`${date}T23:59:59+01:00`);
+
+  const response = await calendar.events.list({
+    calendarId: calendarId,
+    timeMin: dayStart.toISOString(),
+    timeMax: dayEnd.toISOString(),
+    singleEvents: true,
+    orderBy: "startTime",
+    q: patientName,
+  });
+
+  return response.data.items;
 }
 
 module.exports = {
@@ -74,4 +128,6 @@ module.exports = {
   getRefreshToken,
   createCalendarEvent,
   getAvailability,
+  cancelCalendarEvent,
+  findEventByPatientAndDate,
 };
