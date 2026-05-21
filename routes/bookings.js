@@ -55,7 +55,7 @@ router.post("/book", async (req, res) => {
 router.get("/availability", async (req, res) => {
   console.log("📡 REQUEST RECEIVED: GET /bookings/availability");
 
-  const { date } = req.query;
+  const { date } = req.query.date ? req.query : req.body;
 
   if (!date) {
     return res.status(400).json({ success: false, message: "date is required (format: YYYY-MM-DD)." });
