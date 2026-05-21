@@ -1,22 +1,26 @@
 const express = require("express");
 const router = express.Router();
-const { createCalendarEvent, getAvailability } = require("../services/googleCalendar");
+const {
+  createCalendarEvent,
+  getAvailability,
+  cancelCalendarEvent,
+  findEventByPatientAndDate,
+} = require("../services/googleCalendar");
 
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || "primary";
 
 // Book an appointment
 router.post("/book", async (req, res) => {
-  console.log("📥 REQUEST RECEIVED: POST /bookings/book");
+  console.log("📡 REQUEST RECEIVED: POST /bookings/book");
   console.log("📦 BODY:", JSON.stringify(req.body));
 
-  const { patientName, reason, dateTime, phone, clinicId } = req.body;
+  const { patientName, reason, dateTime, phone } = req.body;
 
   if (!patientName || !dateTime) {
     return res.status(400).json({ success: false, message: "patientName and dateTime are required." });
   }
 
   try {
-    // Build a 1-hour appointment slot
     const startTime = new Date(dateTime + "+01:00");
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
 
@@ -36,28 +40,66 @@ router.post("/book", async (req, res) => {
     const created = await createCalendarEvent(CALENDAR_ID, event);
 
     console.log("✅ Booking created:", created.id);
-    res.json({ success: true, message: "Appointment booked successfully.", eventId: created.id });
-
+    res.json({
+      success: true,
+      message: `Brilliant — your appointment is confirmed for ${new Date(startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })} at ${new Date(startTime).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Europe/London" })}. We look forward to seeing you!`,
+      eventId: created.id,
+    });
   } catch (err) {
     console.error("❌ Booking error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Sorry, I wasn't able to complete the booking. Please try again." });
   }
 });
 
-// Check availability for a given date (format: YYYY-MM-DD)
+// Check availability
 router.get("/availability", async (req, res) => {
+  console.log("📡 REQUEST RECEIVED: GET /bookings/availability");
+
   const { date } = req.query;
 
   if (!date) {
-    return res.status(400).json({ success: false, message: "date query parameter is required." });
+    return res.status(400).json({ success: false, message: "date is required (format: YYYY-MM-DD)." });
   }
 
   try {
-    const bookedSlots = await getAvailability(CALENDAR_ID, date);
-    res.json({ success: true, date, bookedSlots });
+    const availableSlots = await getAvailability(CALENDAR_ID, date);
+
+    if (availableSlots.length === 0) {
+      return res.json({ success: true, message: "Unfortunately we have no availability on that date. Would you like to try a different day?" });
+    }
+
+    res.json({ success: true, availableSlots });
   } catch (err) {
     console.error("❌ Availability error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Sorry, I couldn't check availability right now. Please try again." });
+  }
+});
+
+// Cancel an appointment
+router.post("/cancel", async (req, res) => {
+  console.log("📡 REQUEST RECEIVED: POST /bookings/cancel");
+  console.log("📦 BODY:", JSON.stringify(req.body));
+
+  const { patientName, date } = req.body;
+
+  if (!patientName || !date) {
+    return res.status(400).json({ success: false, message: "patientName and date are required." });
+  }
+
+  try {
+    const events = await findEventByPatientAndDate(CALENDAR_ID, patientName, date);
+
+    if (!events || events.length === 0) {
+      return res.json({ success: false, message: `I couldn't find an appointment for ${patientName} on that date. Could you double check the details?` });
+    }
+
+    await cancelCalendarEvent(CALENDAR_ID, events[0].id);
+
+    console.log("✅ Cancelled event:", events[0].id);
+    res.json({ success: true, message: `Done — the appointment for ${patientName} has been cancelled. If you'd like to rebook, just let me know.` });
+  } catch (err) {
+    console.error("❌ Cancellation error:", err.message);
+    res.status(500).json({ success: false, message: "Sorry, I wasn't able to cancel that appointment. Please try again." });
   }
 });
 
