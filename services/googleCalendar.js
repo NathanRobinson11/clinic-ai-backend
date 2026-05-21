@@ -5,7 +5,7 @@ const clientId = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const redirectUri = "[clinic-ai-backend-euzh.onrender.com](https://clinic-ai-backend-euzh.onrender.com/oauth2callback)";
 
-let refreshToken = null;
+let refreshToken = process.env.GOOGLE_REFRESH_TOKEN || null;
 
 function getOAuthClient() {
   return new google.auth.OAuth2(
