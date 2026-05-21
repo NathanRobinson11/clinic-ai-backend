@@ -1,110 +1,64 @@
 const express = require("express");
 const router = express.Router();
+const { createCalendarEvent, getAvailability } = require("../services/googleCalendar");
 
-const { createCalendarEvent } = require("../services/googleCalendar");
+const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || "primary";
 
-/**
- * BOOK APPOINTMENT
- */
+// Book an appointment
 router.post("/book", async (req, res) => {
-  const { patientName, dateTime, reason, phone, clinicId } = req.body;
+  console.log("📥 REQUEST RECEIVED: POST /bookings/book");
+  console.log("📦 BODY:", JSON.stringify(req.body));
 
-  console.log("📥 Booking request received:", req.body);
+  const { patientName, reason, dateTime, phone, clinicId } = req.body;
+
+  if (!patientName || !dateTime) {
+    return res.status(400).json({ success: false, message: "patientName and dateTime are required." });
+  }
 
   try {
-    /**
-     * -----------------------------
-     * VALIDATION (CRITICAL)
-     * -----------------------------
-     */
-    if (!patientName || !dateTime || !reason || !phone) {
-      return res.json({
-        success: false,
-        message: "Missing required booking details. Please provide all information."
-      });
-    }
+    // Build a 1-hour appointment slot
+    const startTime = new Date(dateTime);
+    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
 
-    /**
-     * -----------------------------
-     * DATE PARSING (TIMEZONE SAFE)
-     * -----------------------------
-     * Vapi sends ISO string → we lock it to correct interpretation
-     */
-    const startDateTime = new Date(dateTime);
-
-    if (isNaN(startDateTime.getTime())) {
-      return res.json({
-        success: false,
-        message: "I couldn't understand the appointment time. Please try again."
-      });
-    }
-
-    const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
-
-    /**
-     * -----------------------------
-     * GOOGLE CALENDAR EVENT
-     * -----------------------------
-     */
     const event = {
-      summary: `Appointment: ${patientName}`,
-      description: `${reason} | Phone: ${phone}`,
+      summary: `${reason || "Appointment"} – ${patientName}`,
+      description: `Patient: ${patientName}\nPhone: ${phone || "N/A"}\nReason: ${reason || "N/A"}`,
       start: {
-        dateTime: startDateTime.toISOString(),
-        timeZone: "Europe/London"
+        dateTime: startTime.toISOString(),
+        timeZone: "Europe/London",
       },
       end: {
-        dateTime: endDateTime.toISOString(),
-        timeZone: "Europe/London"
-      }
+        dateTime: endTime.toISOString(),
+        timeZone: "Europe/London",
+      },
     };
 
-    const result = await createCalendarEvent("primary", event);
+    const created = await createCalendarEvent(CALENDAR_ID, event);
 
-    if (!result || !result.id) {
-      throw new Error("Calendar event creation failed");
-    }
+    console.log("✅ Booking created:", created.id);
+    res.json({ success: true, message: "Appointment booked successfully.", eventId: created.id });
 
-    /**
-     * -----------------------------
-     * HUMAN READABLE RESPONSE (VAPI SPEECH)
-     * -----------------------------
-     */
-    const spokenDate = startDateTime.toLocaleString("en-GB", {
-      timeZone: "Europe/London",
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-
-    console.log("📅 Calendar event created:", result.id);
-
-    return res.json({
-      success: true,
-      message: `Perfect — your appointment is confirmed for ${spokenDate}. We look forward to seeing you.`,
-      eventId: result.id
-    });
-
-  } catch (error) {
-    console.error("❌ Booking error:", error);
-
-    return res.json({
-      success: false,
-      message: "Sorry — I couldn't complete your booking. Please try again."
-    });
+  } catch (err) {
+    console.error("❌ Booking error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-/**
- * CANCEL (placeholder for now)
- */
-router.post("/cancel", async (req, res) => {
-  return res.json({
-    success: true,
-    message: "Your cancellation request has been received."
-  });
+// Check availability for a given date (format: YYYY-MM-DD)
+router.get("/availability", async (req, res) => {
+  const { date } = req.query;
+
+  if (!date) {
+    return res.status(400).json({ success: false, message: "date query parameter is required." });
+  }
+
+  try {
+    const bookedSlots = await getAvailability(CALENDAR_ID, date);
+    res.json({ success: true, date, bookedSlots });
+  } catch (err) {
+    console.error("❌ Availability error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;
