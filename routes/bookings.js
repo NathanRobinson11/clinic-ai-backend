@@ -17,7 +17,7 @@ router.post("/book", async (req, res) => {
 
   try {
     // Build a 1-hour appointment slot
-    const startTime = new Date(dateTime);
+    const startTime = new Date(dateTime + "+01:00");
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
 
     const event = {
