@@ -60,18 +60,20 @@ router.post("/availability", async (req, res) => {
   console.log("📅 DATE RECEIVED:", date);
 
   if (!date) {
-    return res.status(400).json({ success: false, message: "date is required (format: YYYY-MM-DD)." });
+    return res.status(400).json({ success: false, availableTimes: "date is required" });
   }
 
   try {
     const availableSlots = await getAvailability(CALENDAR_ID, date);
     console.log("✅ Available slots:", availableSlots);
 
+    const spoken = availableSlots.slice(0, 3).join(", ");
+    console.log("📤 SENDING RESPONSE:", JSON.stringify({ success: true, availableTimes: spoken }));
+
     if (availableSlots.length === 0) {
       return res.json({ success: true, availableTimes: "no times available on that date" });
     }
 
-    const spoken = availableSlots.slice(0, 3).join(", ");
     res.json({
       success: true,
       availableTimes: spoken,
