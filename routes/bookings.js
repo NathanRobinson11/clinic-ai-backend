@@ -57,6 +57,7 @@ router.post("/availability", async (req, res) => {
   console.log("📦 BODY:", JSON.stringify(req.body));
 
   const { date } = req.body;
+  console.log("📅 DATE RECEIVED:", date);
 
   if (!date) {
     return res.status(400).json({ success: false, message: "date is required (format: YYYY-MM-DD)." });
@@ -64,6 +65,7 @@ router.post("/availability", async (req, res) => {
 
   try {
     const availableSlots = await getAvailability(CALENDAR_ID, date);
+    console.log("✅ Available slots:", availableSlots);
 
     if (availableSlots.length === 0) {
       return res.json({ success: true, message: "Unfortunately we have no availability on that date. Would you like to try a different day?" });
@@ -76,7 +78,7 @@ router.post("/availability", async (req, res) => {
       availableSlots,
     });
   } catch (err) {
-    console.error("❌ Availability error:", err.message);
+    console.error("❌ Availability error:", err.message, err.stack);
     res.status(500).json({ success: false, message: "Sorry, I couldn't check availability right now. Please try again." });
   }
 });
@@ -104,7 +106,7 @@ router.post("/cancel", async (req, res) => {
     console.log("✅ Cancelled event:", events[0].id);
     res.json({ success: true, message: `Done — the appointment for ${patientName} has been cancelled. If you'd like to rebook, just let me know.` });
   } catch (err) {
-    console.error("❌ Cancellation error:", err.message);
+    console.error("❌ Cancellation error:", err.message, err.stack);
     res.status(500).json({ success: false, message: "Sorry, I wasn't able to cancel that appointment. Please try again." });
   }
 });
