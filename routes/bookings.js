@@ -68,18 +68,17 @@ router.post("/availability", async (req, res) => {
     console.log("✅ Available slots:", availableSlots);
 
     if (availableSlots.length === 0) {
-      return res.json({ success: true, message: "Unfortunately we have no availability on that date. Would you like to try a different day?" });
+      return res.json({ success: true, availableTimes: "no times available on that date" });
     }
 
     const spoken = availableSlots.slice(0, 3).join(", ");
     res.json({
       success: true,
-      message: `We have availability at ${spoken}. Which of those would suit you best?`,
-      availableSlots,
+      availableTimes: spoken,
     });
   } catch (err) {
     console.error("❌ Availability error:", err.message, err.stack);
-    res.status(500).json({ success: false, message: "Sorry, I couldn't check availability right now. Please try again." });
+    res.status(500).json({ success: false, availableTimes: "unavailable right now" });
   }
 });
 
