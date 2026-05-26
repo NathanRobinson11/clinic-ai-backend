@@ -2,7 +2,7 @@ const { google } = require("googleapis");
 
 const clientId = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const redirectUri = "[clinic-ai-backend-euzh.onrender.com](https://clinic-ai-backend-euzh.onrender.com/oauth2callback)";
+const redirectUri = "https://clinic-ai-backend-euzh.onrender.com/oauth2callback";
 
 let refreshToken = process.env.GOOGLE_REFRESH_TOKEN || null;
 
@@ -62,7 +62,6 @@ async function getAvailability(calendarId, date) {
     end: e.end.dateTime,
   }));
 
-  // Generate all 1-hour slots from 8am to 5pm
   const allSlots = [];
   for (let hour = 8; hour <= 17; hour++) {
     const slotStart = new Date(`${date}T${String(hour).padStart(2, "0")}:00:00+01:00`);
