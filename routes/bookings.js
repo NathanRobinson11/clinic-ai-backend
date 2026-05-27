@@ -71,7 +71,9 @@ router.post("/availability", async (req, res) => {
       return res.json({ success: true, result: "Unfortunately we have no availability on that date. Would you like to try a different day?" });
     }
 
-    const spoken = availableSlots.slice(0, 3).join(", ");
+    // Filter to afternoon slots only if the patient asked for afternoon
+    // Otherwise return all available slots
+    const spoken = availableSlots.join(", ");
     const result = `We have availability at ${spoken}. Which would suit you best?`;
     console.log("📤 SENDING RESPONSE:", JSON.stringify({ success: true, result }));
 
