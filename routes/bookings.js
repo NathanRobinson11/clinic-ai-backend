@@ -15,6 +15,7 @@ const CLINIC_ID = process.env.CLINIC_ID;
 router.post("/book", async (req, res) => {
   console.log("📡 REQUEST RECEIVED: POST /bookings/book");
   console.log("📦 BODY:", JSON.stringify(req.body));
+  console.log("🏥 CLINIC_ID:", CLINIC_ID);
 
   const { patientName, reason, dateTime, phone } = req.body;
 
@@ -43,7 +44,7 @@ router.post("/book", async (req, res) => {
     console.log("✅ Booking created:", created.id);
 
     // Log booking to Supabase
-    await supabase.from("bookings").insert({
+    const { data, error } = await supabase.from("bookings").insert({
       clinic_id: CLINIC_ID,
       patient_name: patientName,
       phone: phone || null,
@@ -53,7 +54,11 @@ router.post("/book", async (req, res) => {
       status: "confirmed",
     });
 
-    console.log("✅ Booking logged to Supabase");
+    if (error) {
+      console.error("❌ Supabase insert error:", JSON.stringify(error));
+    } else {
+      console.log("✅ Booking logged to Supabase, CLINIC_ID used:", CLINIC_ID);
+    }
 
     res.json({
       success: true,
@@ -122,12 +127,16 @@ router.post("/cancel", async (req, res) => {
     console.log("✅ Cancelled event:", events[0].id);
 
     // Update booking status in Supabase
-    await supabase
+    const { error } = await supabase
       .from("bookings")
       .update({ status: "cancelled" })
       .eq("google_event_id", events[0].id);
 
-    console.log("✅ Booking status updated in Supabase");
+    if (error) {
+      console.error("❌ Supabase update error:", JSON.stringify(error));
+    } else {
+      console.log("✅ Booking status updated in Supabase");
+    }
 
     res.json({ success: true, message: `Done — the appointment for ${patientName} has been cancelled. If you'd like to rebook, just let me know.` });
   } catch (err) {
