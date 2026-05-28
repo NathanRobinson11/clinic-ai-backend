@@ -49,7 +49,7 @@ router.post("/book", async (req, res) => {
       patient_name: patientName,
       phone: phone || null,
       reason: reason || null,
-      appointment_time: startTime.toISOString(),
+      appointment_time: new Date(dateTime).toLocaleString("en-GB", { timeZone: "Europe/London" }),
       google_event_id: created.id,
       status: "confirmed",
     });
