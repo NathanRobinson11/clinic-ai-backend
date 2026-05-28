@@ -6,8 +6,10 @@ const {
   cancelCalendarEvent,
   findEventByPatientAndDate,
 } = require("../services/googleCalendar");
+const supabase = require("../services/supabase");
 
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || "primary";
+const CLINIC_ID = process.env.CLINIC_ID;
 
 // Book an appointment
 router.post("/book", async (req, res) => {
@@ -38,8 +40,21 @@ router.post("/book", async (req, res) => {
     };
 
     const created = await createCalendarEvent(CALENDAR_ID, event);
-
     console.log("✅ Booking created:", created.id);
+
+    // Log booking to Supabase
+    await supabase.from("bookings").insert({
+      clinic_id: CLINIC_ID,
+      patient_name: patientName,
+      phone: phone || null,
+      reason: reason || null,
+      appointment_time: startTime.toISOString(),
+      google_event_id: created.id,
+      status: "confirmed",
+    });
+
+    console.log("✅ Booking logged to Supabase");
+
     res.json({
       success: true,
       message: `Brilliant — your appointment is confirmed for ${new Date(startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })} at ${new Date(startTime).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Europe/London" })}. We look forward to seeing you!`,
@@ -71,8 +86,6 @@ router.post("/availability", async (req, res) => {
       return res.json({ success: true, result: "Unfortunately we have no availability on that date. Would you like to try a different day?" });
     }
 
-    // Filter to afternoon slots only if the patient asked for afternoon
-    // Otherwise return all available slots
     const spoken = availableSlots.join(", ");
     const result = `We have availability at ${spoken}. Which would suit you best?`;
     console.log("📤 SENDING RESPONSE:", JSON.stringify({ success: true, result }));
@@ -106,8 +119,16 @@ router.post("/cancel", async (req, res) => {
     }
 
     await cancelCalendarEvent(CALENDAR_ID, events[0].id);
-
     console.log("✅ Cancelled event:", events[0].id);
+
+    // Update booking status in Supabase
+    await supabase
+      .from("bookings")
+      .update({ status: "cancelled" })
+      .eq("google_event_id", events[0].id);
+
+    console.log("✅ Booking status updated in Supabase");
+
     res.json({ success: true, message: `Done — the appointment for ${patientName} has been cancelled. If you'd like to rebook, just let me know.` });
   } catch (err) {
     console.error("❌ Cancellation error:", err.message, err.stack);
