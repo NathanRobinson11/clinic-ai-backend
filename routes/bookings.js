@@ -63,7 +63,7 @@ router.post("/book", async (req, res) => {
     const created = await createCalendarEvent(CALENDAR_ID, event);
     console.log("✅ Booking created:", created.id);
 
-    // Log booking to Supabase using ISO string directly
+    // Log booking to Supabase
     const { data, error } = await supabase.from("bookings").insert({
       clinic_id: CLINIC_ID,
       patient_name: patientName,
@@ -104,7 +104,21 @@ router.post("/availability", async (req, res) => {
   }
 
   try {
-    const availableSlots = await getAvailability(CALENDAR_ID, date);
+    // Fetch clinic working hours from Supabase
+    const { data: clinic, error: clinicError } = await supabase
+      .from("clinics")
+      .select("working_hours")
+      .eq("id", CLINIC_ID)
+      .single();
+
+    if (clinicError) {
+      console.error("❌ Error fetching clinic hours:", JSON.stringify(clinicError));
+    }
+
+    const workingHours = clinic ? clinic.working_hours : null;
+    console.log("🕐 Working hours:", JSON.stringify(workingHours));
+
+    const availableSlots = await getAvailability(CALENDAR_ID, date, workingHours);
     console.log("✅ Available slots:", availableSlots);
 
     if (availableSlots.length === 0) {
@@ -115,10 +129,7 @@ router.post("/availability", async (req, res) => {
     const result = `We have availability at ${spoken}. Which would suit you best?`;
     console.log("📤 SENDING RESPONSE:", JSON.stringify({ success: true, result }));
 
-    res.json({
-      success: true,
-      result,
-    });
+    res.json({ success: true, result });
   } catch (err) {
     console.error("❌ Availability error:", err.message, err.stack);
     res.status(500).json({ success: false, result: "I'm sorry, I couldn't check availability right now. Please try again." });
