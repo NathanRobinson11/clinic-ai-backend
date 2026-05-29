@@ -1,26 +1,49 @@
 const { google } = require("googleapis");
+const supabase = require("./supabase");
 
 const clientId = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const redirectUri = "[clinic-ai-backend-euzh.onrender.com](https://clinic-ai-backend-euzh.onrender.com/oauth2callback)";
-
-let refreshToken = null;
+const CLINIC_ID = process.env.CLINIC_ID;
 
 function getOAuthClient() {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
-function saveRefreshToken(token) {
-  refreshToken = token;
+// Save refresh token to Supabase instead of memory
+async function saveRefreshToken(token) {
+  const { error } = await supabase
+    .from("clinics")
+    .update({ google_refresh_token: token })
+    .eq("id", CLINIC_ID);
+
+  if (error) {
+    console.error("❌ Error saving refresh token:", JSON.stringify(error));
+  } else {
+    console.log("✅ Refresh token saved to Supabase");
+  }
 }
 
-function getRefreshToken() {
-  return refreshToken;
+// Read refresh token from Supabase
+async function getRefreshToken() {
+  const { data, error } = await supabase
+    .from("clinics")
+    .select("google_refresh_token")
+    .eq("id", CLINIC_ID)
+    .single();
+
+  if (error) {
+    console.error("❌ Error fetching refresh token:", JSON.stringify(error));
+    return null;
+  }
+
+  return data.google_refresh_token;
 }
 
 async function createCalendarEvent(calendarId, event) {
   const auth = getOAuthClient();
-  auth.setCredentials({ refresh_token: getRefreshToken() });
+  const token = await getRefreshToken();
+  auth.setCredentials({ refresh_token: token });
 
   const calendar = google.calendar({ version: "v3", auth });
 
@@ -34,7 +57,8 @@ async function createCalendarEvent(calendarId, event) {
 
 async function getAvailability(calendarId, date, workingHours) {
   const auth = getOAuthClient();
-  auth.setCredentials({ refresh_token: getRefreshToken() });
+  const token = await getRefreshToken();
+  auth.setCredentials({ refresh_token: token });
 
   const calendar = google.calendar({ version: "v3", auth });
 
@@ -46,7 +70,7 @@ async function getAvailability(calendarId, date, workingHours) {
   // Check working hours for this day
   const dayHours = workingHours ? workingHours[dayName] : null;
 
-  // If clinic is closed this day, return empty
+  // If clinic is closed this day return empty
   if (!dayHours) {
     console.log(`🚫 Clinic is closed on ${dayName}`);
     return [];
@@ -99,7 +123,8 @@ async function getAvailability(calendarId, date, workingHours) {
 
 async function cancelCalendarEvent(calendarId, eventId) {
   const auth = getOAuthClient();
-  auth.setCredentials({ refresh_token: getRefreshToken() });
+  const token = await getRefreshToken();
+  auth.setCredentials({ refresh_token: token });
 
   const calendar = google.calendar({ version: "v3", auth });
 
@@ -111,7 +136,8 @@ async function cancelCalendarEvent(calendarId, eventId) {
 
 async function findEventByPatientAndDate(calendarId, patientName, date) {
   const auth = getOAuthClient();
-  auth.setCredentials({ refresh_token: getRefreshToken() });
+  const token = await getRefreshToken();
+  auth.setCredentials({ refresh_token: token });
 
   const calendar = google.calendar({ version: "v3", auth });
 
