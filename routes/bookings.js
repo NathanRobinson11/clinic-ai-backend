@@ -27,6 +27,26 @@ router.post("/book", async (req, res) => {
     const startTime = new Date(dateTime + "+01:00");
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
 
+    // Check for double booking
+    const { data: existingBookings, error: checkError } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("clinic_id", CLINIC_ID)
+      .eq("appointment_time", startTime.toISOString())
+      .eq("status", "confirmed");
+
+    if (checkError) {
+      console.error("❌ Double booking check error:", JSON.stringify(checkError));
+    }
+
+    if (existingBookings && existingBookings.length > 0) {
+      console.log("⚠️ Double booking prevented for:", startTime.toISOString());
+      return res.json({
+        success: false,
+        message: "I'm sorry, that time slot has just been taken. Let me check what else we have available for you.",
+      });
+    }
+
     const event = {
       summary: `${reason || "Appointment"} – ${patientName}`,
       description: `Patient: ${patientName}\nPhone: ${phone || "N/A"}\nReason: ${reason || "N/A"}`,
@@ -43,13 +63,13 @@ router.post("/book", async (req, res) => {
     const created = await createCalendarEvent(CALENDAR_ID, event);
     console.log("✅ Booking created:", created.id);
 
-    // Log booking to Supabase
+    // Log booking to Supabase using ISO string directly
     const { data, error } = await supabase.from("bookings").insert({
       clinic_id: CLINIC_ID,
       patient_name: patientName,
       phone: phone || null,
       reason: reason || null,
-      appointment_time: new Date(dateTime).toLocaleString("en-GB", { timeZone: "Europe/London" }),
+      appointment_time: startTime.toISOString(),
       google_event_id: created.id,
       status: "confirmed",
     });
